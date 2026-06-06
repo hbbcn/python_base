@@ -1,3 +1,4 @@
+import os
 # 1.导入模块
 # 1. 导入模块
 # import utils.my_fun
@@ -29,3 +30,6 @@ from utils.my_fun import log_separator1, log_separator3
 
 log_separator1()
 log_separator3()
+
+apiKey = os.getenv("MOONSHOT_API_KEY")
+print(apiKey)
