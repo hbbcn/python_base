@@ -26,7 +26,7 @@ def generate_session_name():
 
 
 # 保存会话信息函数
-def save_session():
+def  save_session():
     if st.session_state.current_session:
         # 构建新的会话对象
         session_data = {
@@ -42,7 +42,32 @@ def save_session():
         # 保存会话数据
         with open(f"sessions/{st.session_state.current_session}.json", "w", encoding="utf-8") as f:
             json.dump(session_data, f, ensure_ascii=False, indent=2)
+        print(f"保存会话成功: {st.session_state.current_session}: {session_data}")
 
+# 加载所有的会话信息列表
+def load_sessions():
+    session_list = []
+    # 加载sessions目录下的文件
+    if os.path.exists("sessions"):
+        for file in os.listdir("sessions"):
+            if file.endswith(".json"):
+                session_list.append(file[:-5])
+
+    return session_list
+
+# 获取指定session信息
+def load_session(session_name):
+    try:
+        if os.path.exists(f"sessions/{session_name}.json"):
+            # 读取会话数据
+            with open(f"sessions/{session_name}.json", "r", encoding="utf -8") as f:
+                session_data = json.load(f)
+                st.session_state.messages = session_data["messages"]
+                st.session_state.nick_name = session_data["nick_name"]
+                st.session_state.personality = session_data["personality"]
+                st.session_state.current_session = session_name
+    except Exception as e:
+        st.error(f"加载会话失败: {e}")
 
 # 大标题
 st.title("AI智能伴侣")
@@ -108,11 +133,33 @@ with st.sidebar:
         # 1.保存当前会话信息
         save_session()
         # 2.创建新的会话
-        st.session_state.messages = []
-        st.session_state.current_session = generate_session_name()
-        save_session()
+        if st.session_state.messages: # 如果聊天信息非空,则新建会话
+            st.session_state.messages = []
+            st.session_state.current_session = generate_session_name()
+            save_session()
+            # 重新执行此文件
+            st.rerun()
+
+    # 会话历史
+    st.text("会话历史")
+    session_list = load_sessions()
+    for session in session_list:
+        # st.columns([4,1])  占 80% 宽度 (coll1) 占 20% (coll2)
+        coll1,coll2 = st.columns([4,1])
+        with coll1:
+            # 加载会话信息
+            # st.button() 点击按钮后,会返回True，key参数指定了按钮的唯一标识符
+            # 三元表达式语法: 值1 if 条件 else 值2
+            if st.button(session, width="stretch", icon="📝",key=f"load_{session}",type="primary" if session == st.session_state.current_session else "secondary"):
+                load_session(session)
+                st.rerun()
+        # 删除会话
+        with coll2:
+            st.button("",width="stretch",icon="❌️",key=f"delete_{session}")
+            pass
 
 
+    # 伴侣信息
     st.subheader("伴侣信息")
     nick_name = st.text_input("伴侣昵称",placeholder="请输入昵称",value=st.session_state.nick_name)
     # 昵称输入框
@@ -164,3 +211,4 @@ if prompt:
             response_message.chat_message("assistant").write(full_response)
     # 保存大模型返回结果
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+    save_session()
