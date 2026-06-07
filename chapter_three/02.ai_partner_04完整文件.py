@@ -53,6 +53,9 @@ def load_sessions():
             if file.endswith(".json"):
                 session_list.append(file[:-5])
 
+    print(f"排序前: {session_list}")
+    session_list.sort(reverse=True)
+    print(f"排序后: {session_list}")# 排序 降序排列
     return session_list
 
 # 获取指定session信息
@@ -79,6 +82,8 @@ def delete_session(session_name):
                 st.session_state.current_session = generate_session_name()
     except Exception as e:
         st.error(f"删除会话失败: {e}")
+
+
 # 大标题
 st.title("AI智能伴侣")
 
@@ -168,7 +173,8 @@ with st.sidebar:
         with coll2:
            if st.button("",width="stretch",icon="❌️",key=f"delete_{session}"):
              delete_session(session)
-
+    # 分割线
+    st.divider()
     # 伴侣信息
     st.subheader("伴侣信息")
     nick_name = st.text_input("伴侣昵称",placeholder="请输入昵称",value=st.session_state.nick_name)
