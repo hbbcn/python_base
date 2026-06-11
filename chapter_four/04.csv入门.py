@@ -25,3 +25,9 @@ with open('csv_data/data02.csv', 'w', encoding='utf-8', newline='') as f:
     writer.writerow({"name": "小张", "age": 19, "sex": "女"})
     writer.writerow({"name": "小李", "age": 20, "sex": "男"})
     writer.writerow({"name": "小王", "age": 18, "sex": "男"})
+
+# 读
+with open('csv_data/data02.csv', 'r', encoding='utf-8') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        print(row)
