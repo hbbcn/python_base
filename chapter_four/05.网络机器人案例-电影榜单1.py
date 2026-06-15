@@ -10,10 +10,14 @@ TMDB_BASE_URL = "https://www.themoviedb.org"
 TMDB_TOP_URL = "https://www.themoviedb.org/movie/top-rated"
 
 def save_all_movies(movies):
-    with open(MOVE_LIST_FILE, "w", encoding="utf-8", newline="") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=movies[0].keys())
+    if not movies:
+        print("没有数据可保存")
+        return
+    with open(MOVE_LIST_FILE, "w", encoding="utf-8", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=movies[0].keys())
         writer.writeheader()
         writer.writerows(movies)
+    print(f"成功保存 {len(movies)} 条电影数据到 {MOVE_LIST_FILE}")
 
 def get_movie_detail(movie_url):
     """
