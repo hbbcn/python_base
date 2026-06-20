@@ -2,9 +2,10 @@ import requests
 from IPython.core.interactiveshell import make_main_module_type
 from lxml import html
 import csv
+import re
 
 # 常量
-MOVE_LIST_FILE = "csv_data/move_list_page1.csv"
+MOVE_LIST_FILE = "csv_data/move_list_optimize.csv"
 TMDB_BASE_URL = "https://www.themoviedb.org"
 
 TMDB_TOP_URL = "https://www.themoviedb.org/movie/top-rated"  # 高分电影榜单的url(默认第1也3)
@@ -20,6 +21,26 @@ def save_all_movies(movies):
         writer.writeheader()
         writer.writerows(movies)
     print(f"成功保存 {len(movies)} 条电影数据到 {MOVE_LIST_FILE}")
+
+
+def get_movie_year(movie_year):
+    # 去除括号
+    movie_year = movie_year.replace("(", "").replace(")", "")
+    return movie_year
+
+
+def get_movie_release(movie_release):
+    # 处理上映时间 ,将 1957-04-10(US) 转为 1957-04-10
+    return re.search(r"\d{4}-\d{2}-\d{2}",movie_release).group()
+
+
+def get_movie_duration(movie_duration):
+    # 转为分钟
+    h_res = re.search(r"(\d+)h",movie_duration)
+    m_res = re.search(r"(\d+)m",movie_duration)
+    h = int(h_res.group(1) if h_res else 0)
+    m = int(m_res.group(1) if m_res else 0)
+    return h * 60 + m
 
 def get_movie_detail(movie_url):
     """
@@ -37,14 +58,17 @@ def get_movie_detail(movie_url):
     # 年份
     movie_year_list = movie_doc.xpath("//*[@id='original_header']/div[2]/section/div[1]/h2/span/text()")
     movie_year = movie_year_list[0].strip() if movie_year_list else ''
+    movie_year = get_movie_year(movie_year)
     # 上映时间
     movie_release_list = movie_doc.xpath("//*[@id='original_header']/div[2]/section/div[1]/div/span[@class='release']/text()")
     movie_release = movie_release_list[0].strip() if movie_release_list else ''
+    movie_release = get_movie_release(movie_release)
     # 电影类型
     movie_tags = movie_doc.xpath("//*[@id='original_header']/div[2]/section/div[1]/div/span[@class='genres']/a/text()")
     # 电影时长
     movie_duration_list = movie_doc.xpath("//*[@id='original_header']/div[2]/section/div[1]/div/span[@class='runtime']/text()")
     movie_duration = movie_duration_list[0].strip() if movie_duration_list else ''
+    movie_duration = get_movie_duration(movie_duration)
     # 评分
     movie_score_list = movie_doc.xpath("//*[@id='consensus_pill']/div/div[1]/div/div/@data-percent")
     movie_score = movie_score_list[0].strip() if movie_score_list else ''
