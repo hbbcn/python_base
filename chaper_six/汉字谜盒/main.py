@@ -1,3 +1,10 @@
+import sys
+import io
+
+# 强制设置标准输出编码为 UTF-8，解决 Windows 终端乱码问题
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 import os
 import json
 import uuid
@@ -6,9 +13,18 @@ from typing import Any, List
 from fastapi import FastAPI, HTTPException
 from openai import OpenAI
 from pydantic import BaseModel
+from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import logging
+
+
+# 配置日志的基本信息
+logging.basicConfig(
+    level=logging.INFO,
+    # 格式  %(asctime)s:时间，%(name)s:日志器名称，%(filename)s:文件名称，:%(lineno)d：第多少行 %(levelname)s:日志级别，%(message)s:日志信息
+    format='%(asctime)s - %(name)s -%(filename)s:%(lineno)d-%(levelname)s - %(message)s',
+)
 
 # 系统提示词 - 适配DeepSeek V4
 SYSTEM_PROMPT = """
@@ -119,6 +135,7 @@ def root():
     """
     根路由，返回前端页面
     """
+    logging.info("访问项目首页")
     return FileResponse("static/index.html")
 
 # 创建会话
@@ -126,7 +143,7 @@ def root():
 def create_session() -> ApiResponse:
     # 1. 创建会话ID
     session_id = generate_session_id()
-    print("创建会话:会话id：",session_id)
+    logging.info(f"创建会话:会话id：{session_id}")
     # 2.组装会话信息，保存到文件
     session_data = {
         "current_session": session_id,
@@ -140,7 +157,7 @@ def create_session() -> ApiResponse:
 # 与AI交互
 @app.post("/api/chat")
 def chat(request: ChatRequest) -> ApiResponse:
-    print(f"与AI交互:{request.session_id}: {request.message}")
+    logging.info(f"与AI交互:{request.session_id}: {request.message}")
     # 逻辑实现 ---》 与AI大模型交互
     # 1.加载JSON文件中的会话数据
     session_path =  get_session_file_name(request.session_id)
@@ -153,7 +170,7 @@ def chat(request: ChatRequest) -> ApiResponse:
     messages.append({"role": "user", "content": request.message})
 
     # 3.调用大模型接口 kimi
-    print("----> 请求大模型会话信息",messages)
+    logging.info(f"----> 请求大模型会话信息:{messages}")
     response = client.chat.completions.create(
         model="kimi-k2.6",
         messages=messages,
@@ -162,8 +179,7 @@ def chat(request: ChatRequest) -> ApiResponse:
     )
     # 4. 获取响应结果
     ai_response = response.choices[0].message.content
-    print("<----- AI大模型返回数据", ai_response)
-
+    logging.info(f"AI大模型返回数据:{ai_response}")
     # 更新消息列表中的数据
     messages.pop(0)
     # 确保 AI 回复不为空再更新会话
@@ -171,12 +187,12 @@ def chat(request: ChatRequest) -> ApiResponse:
         # 更新消息列表中的消息
         messages.append({"role": "assistant", "content": ai_response})
         session_data["messages"] = messages
-        print("更新后的会话信息", session_data)
+        logging.info(f"更新会话数据:{session_data}")
         # 6. 保存会话信息到 json 文件中
         with open(session_path, "w", encoding="utf-8") as f:
             json.dump(session_data, f, ensure_ascii=False, indent=2)
     else:
-        print("警告：AI 返回了空内容")
+        logging.warning("警告：AI 返回了空内容")
 
     return ApiResponse(code=200, message="成功", data=ai_response)
 
@@ -184,7 +200,7 @@ def chat(request: ChatRequest) -> ApiResponse:
 # 虎丘会话列表
 @app.get("/api/sessions")
 def get_sessions() -> ApiResponse:
-    print("获取会话列表")
+    logging.info("获取会话列表")
     # 1. 获取所有会话文件名
     session_files = [f for f in os.listdir("sessions") if f.endswith(".json")]
     # 2. 获取文件名
@@ -198,7 +214,7 @@ def get_sessions() -> ApiResponse:
 # 获取指定的会话信息
 @app.get("/api/sessions/{session_id}")
 def get_session(session_id: str) -> ApiResponse:
-    print(f"获取会话信息:{session_id}")
+    logging.info(f"获取会话信息:{session_id}")
     # 1. 获取文件名
     session_file = get_session_file_name(session_id)
     # 2. 读取文件内容
@@ -211,7 +227,7 @@ def get_session(session_id: str) -> ApiResponse:
 # 删除指定会话
 @app.delete("/api/sessions/{session_id}")
 def delete_session(session_id: str) -> ApiResponse:
-    print(f"删除会话:{session_id}")
+    logging.info(f"删除会话:{session_id}")
     session_file = get_session_file_name(session_id)
     if os.path.exists(session_file):
         os.remove(session_file)
@@ -220,9 +236,16 @@ def delete_session(session_id: str) -> ApiResponse:
         return ApiResponse(code=404, message="会话不存在",data=None)
 
 
+# 定义异常处理器，捕获所有异常 返回类型是是Response
+@app.exception_handler(Exception)
+def exception_handler(request: Request, exc: Exception):
+    logging.error(f"处理异常，请求路径:{request.url},异常:{exc}")
+    return JSONResponse(content={"code": 500, "message": "服务器内部错误，请联系管理员", "data": None})
 
 
 # 启动项目
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+
+    # access_log = False ：关闭访问日志
+    uvicorn.run(app, host="127.0.0.1", port=8000,access_log=True)
